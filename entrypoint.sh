@@ -101,8 +101,12 @@ fi
 # no separate container to drift out of sync. Output goes to the container log.
 (
     while true; do
+        # --keep-alive=0 makes cron run once and exit immediately, instead of
+        # spinning for ~60s checking for adhoc tasks. That keeps a true
+        # CRON_INTERVAL cadence (so Moodle's "run every 1 min" check is happy)
+        # and keeps the container log quiet.
+        runuser -u www-data -- php /var/www/html/admin/cli/cron.php --keep-alive=0 || true
         sleep "${CRON_INTERVAL:-15}m"
-        runuser -u www-data -- php /var/www/html/admin/cli/cron.php || true
     done
 ) &
 echo "Started Moodle cron loop (every ${CRON_INTERVAL:-15} min)."
