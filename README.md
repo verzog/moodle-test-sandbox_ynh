@@ -135,6 +135,36 @@ the container:
 6. Verify: `curl -I https://YOUR_SUBDOMAIN` should return `HTTP/2 200` with no
    `x-sso-wat` header. Then open the site in a browser (hard refresh).
 
+## PHP settings and cron (config-panel equivalents)
+
+The stack mirrors the YunoHost package's config panel through `.env`:
+
+| `.env` variable | Default | Equivalent setting |
+|---|---|---|
+| `PHP_MEMORY_LIMIT` | `256M` | PHP memory limit per process |
+| `PHP_UPLOAD_MAX_FILESIZE` | `1G` | upload_max_filesize / post_max_size |
+| `PHP_MAX_EXECUTION_TIME` | `300` | PHP max execution time (seconds) |
+| `PHP_MAX_INPUT_VARS` | `5000` | PHP max input vars (Moodle needs ≥ 5000) |
+| `CRON_INTERVAL` | `15` | Minutes between Moodle cron runs |
+
+Edit `.env`, then apply with:
+
+```bash
+docker compose up -d          # recreates containers with the new values
+```
+
+Moodle's scheduled tasks run in a dedicated **`cron`** container
+(`admin/cli/cron.php` every `CRON_INTERVAL` minutes, as the `www-data` user).
+Watch it with `docker compose logs -f cron`, or run cron once on demand:
+
+```bash
+docker compose exec cron runuser -u www-data -- php /var/www/html/admin/cli/cron.php
+```
+
+> Behind a reverse proxy, uploads are also limited by the proxy's
+> `client_max_body_size` (the YunoHost nginx snippet sets `100M`); raise it there
+> too if you increase `PHP_UPLOAD_MAX_FILESIZE`.
+
 ## Notes / limitations
 
 - Apache serves from Moodle's `public/` subdirectory (required from Moodle 5.1+);

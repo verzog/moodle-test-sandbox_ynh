@@ -32,13 +32,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-# PHP settings Moodle expects (max_input_vars is the common gotcha).
-RUN { \
-        echo 'max_input_vars = 5000'; \
-        echo 'memory_limit = 256M'; \
-        echo 'upload_max_filesize = 100M'; \
-        echo 'post_max_size = 100M'; \
-    } > /usr/local/etc/php/conf.d/moodle.ini
+# PHP settings (max_input_vars, memory_limit, upload sizes, execution time) are
+# written at container start by entrypoint.sh from environment variables, so they
+# can be tuned via .env without rebuilding the image.
 
 # Pull the Moodle source for the chosen branch. While 5.3 is still in QA (stable
 # is 5 October 2026) the code lives on Moodle's development branch "main"; switch

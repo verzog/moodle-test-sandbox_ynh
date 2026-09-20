@@ -1,8 +1,21 @@
-# Moodle 5.3 test stack: Moodle (built from source) + PostgreSQL 17.
-# Moodle 5.3 requires PostgreSQL 17 (Debian 12 / YunoHost 12 ships only 15,
-# which is why 5.3 can't run there natively - Docker supplies 17 here).
+# Moodle 5.3 test stack: Moodle (built from source) + PostgreSQL 17 + a cron
+# worker. Moodle 5.3 requires PostgreSQL 17 (Debian 12 / YunoHost 12 ships only
+# 15, which is why 5.3 can't run there natively - Docker supplies 17 here).
 # For local experimentation only - this is NOT the YunoHost package.
 # Bring it up with:  docker compose up -d --build
+
+# Shared environment for the web and cron containers. PHP_* values are the
+# sandbox's equivalent of the YunoHost config panel's "PHP & performance" tab.
+x-moodle-env: &moodle-env
+  DB_HOST: db
+  DB_NAME: ${DB_NAME}
+  DB_USER: ${DB_USER}
+  DB_PASS: ${DB_PASS}
+  PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT:-256M}
+  PHP_MAX_INPUT_VARS: ${PHP_MAX_INPUT_VARS:-5000}
+  PHP_MAX_EXECUTION_TIME: ${PHP_MAX_EXECUTION_TIME:-300}
+  PHP_UPLOAD_MAX_FILESIZE: ${PHP_UPLOAD_MAX_FILESIZE:-1G}
+
 services:
   db:
     image: postgres:17
@@ -23,14 +36,12 @@ services:
       context: .
       args:
         MOODLE_BRANCH: ${MOODLE_BRANCH}
+    image: moodle-sandbox:latest
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DB_HOST: db
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
+      <<: *moodle-env
       MOODLE_WWWROOT: ${MOODLE_WWWROOT}
       MOODLE_ADMIN_PASS: ${MOODLE_ADMIN_PASS}
       MOODLE_SSLPROXY: ${MOODLE_SSLPROXY:-false}
@@ -39,6 +50,25 @@ services:
       # BIND_HOST=127.0.0.1 keeps the port private (only a host-side reverse
       # proxy can reach it); the default 0.0.0.0 exposes it for direct IP access.
       - "${BIND_HOST:-0.0.0.0}:${HTTP_PORT}:80"
+    volumes:
+      - moodledata:/var/www/moodledata
+
+  # Runs Moodle's scheduled-task cron every CRON_INTERVAL minutes (like the
+  # YunoHost package's cron timer). Reuses the image built by the moodle service.
+  cron:
+    image: moodle-sandbox:latest
+    depends_on:
+      db:
+        condition: service_healthy
+      moodle:
+        condition: service_started
+    environment:
+      <<: *moodle-env
+      ROLE: cron
+    command:
+      - bash
+      - -c
+      - while true; do runuser -u www-data -- php /var/www/html/admin/cli/cron.php || true; sleep ${CRON_INTERVAL:-15}m; done
     volumes:
       - moodledata:/var/www/moodledata
 
