@@ -178,6 +178,9 @@ docker compose exec moodle runuser -u www-data -- php /var/www/html/admin/cli/cr
 - The image runs `composer install` (git checkouts ship without `vendor/`) and
   configures Moodle's router (`r.php` rewrite + `$CFG->routerconfigured`), so the
   admin health checks for Composer and the router pass.
+- Internal paths (`.git`, `.github`, `behat`, `node_modules`, `vendor`) return a
+  404 before the router catch-all, so Moodle's "public/private paths" security
+  check passes.
 - No email delivery is configured (fine for testing).
 - The container serves plain HTTP; use the YunoHost/HTTPS setup above (or keep it
   to `http://SERVER_IP:HTTP_PORT` for local testing). Don't expose the raw HTTP

@@ -77,6 +77,11 @@ RUN php -r "copy('https://getcomposer.org/installer', '/tmp/composer-setup.php')
 RUN printf '%s\n' \
         '<Directory /var/www/html/public>' \
         '    RewriteEngine On' \
+        '    # Return a real 404 for internal paths that must not be web-served' \
+        '    # (Moodle security "public/private paths" check). This runs before' \
+        '    # the router catch-all so these never resolve to a 200 via r.php.' \
+        '    RewriteRule "(^|/)(\.git|\.github|behat|node_modules|vendor)(/|$)" - [R=404,L]' \
+        '    # Route clean URLs (not real files or *.php scripts) to the router.' \
         '    RewriteCond %{REQUEST_FILENAME} !-f' \
         '    RewriteCond %{REQUEST_FILENAME} !-d' \
         '    RewriteCond %{REQUEST_URI} !\.php(/|$)' \
