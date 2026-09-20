@@ -68,7 +68,7 @@ RUN php -r "copy('https://getcomposer.org/installer', '/tmp/composer-setup.php')
     && php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer \
     && rm -f /tmp/composer-setup.php \
     && cd /var/www/html \
-    && composer install --no-dev --no-interaction --no-progress --no-scripts --classmap-authoritative \
+    && composer install --no-dev --no-interaction --no-progress --no-scripts \
     && chown -R www-data:www-data /var/www/html/vendor
 
 # Configure Moodle's router (Moodle 5.1+): requests that don't resolve to a real
