@@ -56,6 +56,14 @@ RUN rm -rf /var/www/html \
 
 RUN a2enmod rewrite
 
+# Moodle 5.1+ serves from the public/ subdirectory so the non-public code at the
+# project root (and config.php) is not web-reachable. Point Apache's document
+# root there; config.php stays at the project root, where the installer writes it
+# and where public/config.php's stub loads it from.
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
+    && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

@@ -137,6 +137,8 @@ the container:
 
 ## Notes / limitations
 
+- Apache serves from Moodle's `public/` subdirectory (required from Moodle 5.1+);
+  `config.php` lives at the project root, outside the web root.
 - No email delivery is configured (fine for testing).
 - The container serves plain HTTP; use the YunoHost/HTTPS setup above (or keep it
   to `http://SERVER_IP:HTTP_PORT` for local testing). Don't expose the raw HTTP
