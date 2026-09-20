@@ -76,10 +76,35 @@ docker compose up -d --build   # rebuilds with the newest 5.3 source
 
 Then open the site and complete the upgrade prompt if one appears.
 
+## Serving it over HTTPS with a YunoHost domain
+
+The container itself only speaks plain HTTP on `HTTP_PORT`. To reach it over
+HTTPS at a real domain, let YunoHost's nginx terminate TLS and reverse-proxy to
+the container:
+
+1. **Create the subdomain** in YunoHost (Domains → Add) and install its
+   Let's Encrypt certificate.
+2. In `.env`, set:
+   ```
+   MOODLE_WWWROOT=https://YOUR_SUBDOMAIN
+   MOODLE_SSLPROXY=true
+   BIND_HOST=127.0.0.1
+   ```
+   `MOODLE_SSLPROXY=true` stops the redirect loop that happens when nginx serves
+   HTTPS but the container receives HTTP; `BIND_HOST=127.0.0.1` keeps port 8080
+   private so only the local proxy can reach it.
+3. Add an nginx reverse-proxy rule for that domain pointing at
+   `http://127.0.0.1:HTTP_PORT` (YunoHost reads extra rules from
+   `/etc/nginx/conf.d/YOUR_SUBDOMAIN.d/`). Validate with `nginx -t` before
+   reloading, since a bad rule affects every site on the server.
+4. `docker compose down -v` (fresh install so the new wwwroot is baked in),
+   then `docker compose up -d --build`.
+
 ## Notes / limitations
 
 - No email delivery is configured (fine for testing).
-- No HTTPS - this is plain HTTP for local testing only. Do not expose it to the
-  internet as-is.
+- The container serves plain HTTP; use the YunoHost/HTTPS setup above (or keep it
+  to `http://SERVER_IP:HTTP_PORT` for local testing). Don't expose the raw HTTP
+  port to the internet.
 - The admin password and DB password live in `.env`; keep that file private and
   do not commit your real `.env` (only `.env.example` is tracked).

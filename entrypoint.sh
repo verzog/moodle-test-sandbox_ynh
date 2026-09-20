@@ -49,4 +49,12 @@ else
     echo "Moodle installed. Log in as 'admin' with the password from MOODLE_ADMIN_PASS."
 fi
 
+# When Moodle sits behind an HTTPS-terminating reverse proxy (e.g. YunoHost's
+# nginx), the container still speaks plain HTTP, so Moodle must be told the
+# outside world is HTTPS or it redirect-loops. Set sslproxy once, idempotently.
+if [ "${MOODLE_SSLPROXY:-false}" = "true" ] && ! grep -q 'sslproxy' "${PERSISTENT_CONFIG}"; then
+    sed -i "/require_once/i \$CFG->sslproxy = true;" "${PERSISTENT_CONFIG}"
+    echo "Enabled sslproxy for HTTPS reverse-proxy operation."
+fi
+
 exec "$@"
