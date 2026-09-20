@@ -1,9 +1,11 @@
-# Moodle 5.3 test stack: Moodle (built from source) + PostgreSQL 16.
+# Moodle 5.3 test stack: Moodle (built from source) + PostgreSQL 17.
+# Moodle 5.3 requires PostgreSQL 17 (Debian 12 / YunoHost 12 ships only 15,
+# which is why 5.3 can't run there natively - Docker supplies 17 here).
 # For local experimentation only - this is NOT the YunoHost package.
 # Bring it up with:  docker compose up -d --build
 services:
   db:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
