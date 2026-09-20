@@ -46,6 +46,7 @@ services:
       MOODLE_ADMIN_PASS: ${MOODLE_ADMIN_PASS}
       MOODLE_SSLPROXY: ${MOODLE_SSLPROXY:-false}
       MOODLE_ROUTER: ${MOODLE_ROUTER:-true}
+      MOODLE_AUTO_UPGRADE: ${MOODLE_AUTO_UPGRADE:-true}
     ports:
       # BIND_HOST=127.0.0.1 keeps the port private (only a host-side reverse
       # proxy can reach it); the default 0.0.0.0 exposes it for direct IP access.

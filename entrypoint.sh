@@ -95,4 +95,14 @@ if [ "${MOODLE_ROUTER:-true}" = "true" ] && ! grep -q 'routerconfigured' "${MOOD
     echo "Marked Moodle router as configured."
 fi
 
+# Tracking a moving branch (e.g. main) means a rebuild can pull code newer than
+# the database, leaving an upgrade pending. Apply it automatically on the web
+# role so the site (and cron) come up ready. A no-op when nothing is pending.
+if [ "${MOODLE_AUTO_UPGRADE:-true}" = "true" ]; then
+    echo "Applying any pending Moodle upgrade ..."
+    runuser -u www-data -- php /var/www/html/admin/cli/upgrade.php \
+        --non-interactive --allow-unstable || \
+        echo "Upgrade step reported an issue; starting anyway."
+fi
+
 exec "$@"
