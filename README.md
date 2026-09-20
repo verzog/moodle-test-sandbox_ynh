@@ -93,12 +93,47 @@ the container:
    `MOODLE_SSLPROXY=true` stops the redirect loop that happens when nginx serves
    HTTPS but the container receives HTTP; `BIND_HOST=127.0.0.1` keeps port 8080
    private so only the local proxy can reach it.
-3. Add an nginx reverse-proxy rule for that domain pointing at
-   `http://127.0.0.1:HTTP_PORT` (YunoHost reads extra rules from
-   `/etc/nginx/conf.d/YOUR_SUBDOMAIN.d/`). Validate with `nginx -t` before
-   reloading, since a bad rule affects every site on the server.
-4. `docker compose down -v` (fresh install so the new wwwroot is baked in),
-   then `docker compose up -d --build`.
+3. Build with the new settings so the HTTPS wwwroot is baked into the install.
+   On a fresh site: `docker compose up -d --build`. (If the site was already
+   installed with a different wwwroot, use `docker compose down -v` first to
+   reinstall cleanly - this erases the test data.)
+4. Add an nginx reverse-proxy rule for the domain. YunoHost reads extra rules
+   from `/etc/nginx/conf.d/YOUR_SUBDOMAIN.d/`, and the HTTPS server block has no
+   `location /` of its own, so this slots in cleanly (replace the domain and
+   port to match your `.env`):
+   ```bash
+   sudo mkdir -p /etc/nginx/conf.d/YOUR_SUBDOMAIN.d
+   sudo tee /etc/nginx/conf.d/YOUR_SUBDOMAIN.d/moodle-docker.conf > /dev/null <<'EOF'
+   location / {
+       proxy_pass http://127.0.0.1:8080;
+       proxy_set_header Host $host;
+       proxy_set_header X-Real-IP $remote_addr;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection $connection_upgrade;
+       client_max_body_size 100M;
+   }
+   EOF
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+   Always let `nginx -t` pass before the reload - a bad rule affects every site
+   on the server.
+5. Tell YunoHost's SSO (SSOwat) to skip this domain, or it intercepts the root
+   and redirects to the YunoHost portal instead of Moodle. A per-location nginx
+   Lua override is not reliable here; use SSOwat's persistent skip list:
+   ```bash
+   FILE=/etc/ssowat/conf.json.persistent
+   [ -s "$FILE" ] || echo '{}' | sudo tee "$FILE" >/dev/null
+   sudo jq '.skipped_urls = ((.skipped_urls // []) + ["YOUR_SUBDOMAIN/"] | unique)' \
+       "$FILE" | sudo tee "$FILE.tmp" >/dev/null && sudo mv "$FILE.tmp" "$FILE"
+   sudo yunohost app ssowatconf
+   ```
+   `skipped_urls` makes SSOwat ignore the domain entirely (Moodle has its own
+   login); `conf.json.persistent` survives YunoHost regenerating its config.
+6. Verify: `curl -I https://YOUR_SUBDOMAIN` should return `HTTP/2 200` with no
+   `x-sso-wat` header. Then open the site in a browser (hard refresh).
 
 ## Notes / limitations
 
