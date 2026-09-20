@@ -1,8 +1,8 @@
 #!/bin/bash
-# Entry point for the Moodle 5.3 test container. Runs in one of two roles:
-#   ROLE=web  (default) - installs Moodle on first run, then serves it.
-#   ROLE=cron           - waits for the web role to install Moodle, then the
-#                         container's command runs the cron loop.
+# Entry point for the Moodle 5.3 test container. Installs Moodle on first run,
+# applies any pending upgrade, then serves it AND runs the cron loop in the
+# background of the same container - so cron always runs the exact same code and
+# database as the web server and can never drift out of sync.
 # A copy of the generated config.php is kept in the persistent moodledata volume
 # so recreating a container does not trigger a re-install. The live config.php
 # must be a real file (not a symlink) in the web root: Moodle's config.php ends
@@ -10,7 +10,6 @@
 # a symlink to the volume, where there is no lib/ - so we copy, never link.
 set -euo pipefail
 
-ROLE="${ROLE:-web}"
 MOODLE_DATA=/var/www/moodledata
 PERSISTENT_CONFIG="${MOODLE_DATA}/config.php"
 MOODLE_CONFIG=/var/www/html/config.php
@@ -24,6 +23,7 @@ memory_limit = ${PHP_MEMORY_LIMIT:-256M}
 max_execution_time = ${PHP_MAX_EXECUTION_TIME:-300}
 upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE:-1G}
 post_max_size = ${PHP_UPLOAD_MAX_FILESIZE:-1G}
+zend.exception_ignore_args = On
 PHPINI
 
 mkdir -p "${MOODLE_DATA}"
@@ -38,16 +38,6 @@ echo "PostgreSQL is up."
 
 # Clear any stale symlink left by older versions of this script.
 [ -L "${MOODLE_CONFIG}" ] && rm -f "${MOODLE_CONFIG}"
-
-if [ "${ROLE}" = "cron" ]; then
-    # The cron role never installs; it waits for the web role to create config.
-    echo "Cron role: waiting for Moodle to be installed ..."
-    until [ -f "${PERSISTENT_CONFIG}" ]; do sleep 5; done
-    cp "${PERSISTENT_CONFIG}" "${MOODLE_CONFIG}"
-    chown www-data:www-data "${MOODLE_CONFIG}"
-    echo "Cron role: configuration found, starting cron loop."
-    exec "$@"
-fi
 
 if [ -f "${PERSISTENT_CONFIG}" ]; then
     # Already installed - reuse the saved configuration as a real file.
@@ -104,5 +94,17 @@ if [ "${MOODLE_AUTO_UPGRADE:-true}" = "true" ]; then
         --non-interactive --allow-unstable || \
         echo "Upgrade step reported an issue; starting anyway."
 fi
+
+# Run Moodle cron in the background of this same container, as www-data, every
+# CRON_INTERVAL minutes. Because it shares this container's code and database,
+# it stays in lock-step with the web server and the applied upgrade above -
+# no separate container to drift out of sync. Output goes to the container log.
+(
+    while true; do
+        sleep "${CRON_INTERVAL:-15}m"
+        runuser -u www-data -- php /var/www/html/admin/cli/cron.php || true
+    done
+) &
+echo "Started Moodle cron loop (every ${CRON_INTERVAL:-15} min)."
 
 exec "$@"

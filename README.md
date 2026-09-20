@@ -153,13 +153,19 @@ Edit `.env`, then apply with:
 docker compose up -d          # recreates containers with the new values
 ```
 
-Moodle's scheduled tasks run in a dedicated **`cron`** container
-(`admin/cli/cron.php` every `CRON_INTERVAL` minutes, as the `www-data` user).
-Watch it with `docker compose logs -f cron`, or run cron once on demand:
+Moodle's scheduled tasks run from a **background cron loop inside the moodle
+container** (`admin/cli/cron.php` every `CRON_INTERVAL` minutes, as `www-data`).
+Running cron in the same container as the web server means it always uses the
+same code and database - it can't drift onto a different build. Cron output
+appears in the container log; run cron once on demand with:
 
 ```bash
-docker compose exec cron runuser -u www-data -- php /var/www/html/admin/cli/cron.php
+docker compose exec moodle runuser -u www-data -- php /var/www/html/admin/cli/cron.php
 ```
+
+> Moodle expects cron every 1 minute and warns if it runs less often, so
+> `CRON_INTERVAL=1` keeps its health check happy (the YunoHost package defaults
+> to 15).
 
 > Behind a reverse proxy, uploads are also limited by the proxy's
 > `client_max_body_size` (the YunoHost nginx snippet sets `100M`); raise it there
