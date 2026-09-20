@@ -18,9 +18,11 @@ for the full reasoning.
 
 ## Release timing
 
-Moodle 5.3 is an **LTS** release. Stable is scheduled for **5 October 2026**;
-before then the `MOODLE_503_STABLE` branch tracks the release candidate. You can
-try the RC now and it upgrades cleanly to stable, or wait until October.
+Moodle 5.3 is an **LTS** release. Stable is scheduled for **5 October 2026**.
+Until then Moodle has not cut the `MOODLE_503_STABLE` branch, so the 5.3 code
+lives on the development branch **`main`** — which is why `MOODLE_BRANCH` defaults
+to `main`. Once 5.3 is released, set `MOODLE_BRANCH=MOODLE_503_STABLE` in your
+`.env` to follow the stable 5.3 line instead.
 
 ## Requirements
 
@@ -65,8 +67,8 @@ docker compose logs -f moodle  # view Moodle logs
 
 ## Trying stable once it's released (5 Oct 2026)
 
-The `MOODLE_503_STABLE` branch becomes the stable 5.3 line automatically. To pull
-the latest 5.3 code into your test site:
+After 5.3 is released, set `MOODLE_BRANCH=MOODLE_503_STABLE` in your `.env` to
+follow the stable 5.3 line, then rebuild to pull the latest 5.3 code:
 
 ```bash
 docker compose up -d --build   # rebuilds with the newest 5.3 source

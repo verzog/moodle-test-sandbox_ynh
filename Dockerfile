@@ -40,10 +40,15 @@ RUN { \
         echo 'post_max_size = 100M'; \
     } > /usr/local/etc/php/conf.d/moodle.ini
 
-# Pull the Moodle source for the chosen branch. MOODLE_503_STABLE is the 5.3
-# branch; while 5.3 is still in QA the branch tracks the release candidate and
-# upgrades cleanly to stable once it is tagged on 5 October 2026.
-ARG MOODLE_BRANCH=MOODLE_503_STABLE
+# Pull the Moodle source for the chosen branch. While 5.3 is still in QA (stable
+# is 5 October 2026) the code lives on Moodle's development branch "main"; switch
+# this to MOODLE_503_STABLE once that branch is cut at release.
+ARG MOODLE_BRANCH=main
+# Set an explicit working directory before cloning. The legacy Docker build
+# engine (used when the buildx plugin is absent) leaves a RUN step with no valid
+# working directory, and git then aborts with "Unable to read current working
+# directory". Sitting in an existing directory avoids that.
+WORKDIR /var/www
 RUN rm -rf /var/www/html \
     && git clone --branch "${MOODLE_BRANCH}" --depth 1 \
         https://github.com/moodle/moodle.git /var/www/html \
