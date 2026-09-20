@@ -2,7 +2,7 @@
 
 A sandbox for testing **unsupported / development versions of Moodle** in Docker,
 isolated from any real server. The first setup here runs **Moodle 5.3** with the
-PostgreSQL 16 version it needs — something YunoHost 12 (Debian 12) can't run
+PostgreSQL 17 version it needs — something YunoHost 12 (Debian 12) can't run
 natively — without touching your host's packages, database, or other apps.
 
 > **This is a throwaway test environment, not a YunoHost package.** It does not
@@ -11,10 +11,10 @@ natively — without touching your host's packages, database, or other apps.
 
 ## Why Docker instead of the YunoHost package?
 
-Moodle 5.3 requires newer database versions (e.g. PostgreSQL 16) than Debian 12
-ships. Docker bundles the correct PostgreSQL **inside the container**, so your
-host's packages and shared database are never changed. See the repo discussion
-for the full reasoning.
+Moodle 5.3 requires PostgreSQL 17, but Debian 12 (YunoHost 12) ships only
+PostgreSQL 15. Docker bundles the correct PostgreSQL **inside the container**, so
+your host's packages and shared database are never changed. See the repo
+discussion for the full reasoning.
 
 ## Release timing
 
