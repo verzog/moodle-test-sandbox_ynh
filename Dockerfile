@@ -64,6 +64,31 @@ ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
+# Install Composer and Moodle's runtime PHP dependencies. A git checkout (unlike
+# a release ZIP) ships without the vendor/ directory, so the admin health check
+# reports "Composer installed data not found" until these are installed.
+ENV COMPOSER_ALLOW_SUPERUSER=1
+RUN php -r "copy('https://getcomposer.org/installer', '/tmp/composer-setup.php');" \
+    && php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer \
+    && rm -f /tmp/composer-setup.php \
+    && cd /var/www/html \
+    && composer install --no-dev --no-interaction --no-progress --no-scripts --classmap-authoritative \
+    && chown -R www-data:www-data /var/www/html/vendor
+
+# Configure Moodle's router (Moodle 5.1+): requests that don't resolve to a real
+# file or directory (and aren't a *.php script) are sent to the router entry
+# script r.php. Traditional *.php URLs and static files are served directly.
+RUN printf '%s\n' \
+        '<Directory /var/www/html/public>' \
+        '    RewriteEngine On' \
+        '    RewriteCond %{REQUEST_FILENAME} !-f' \
+        '    RewriteCond %{REQUEST_FILENAME} !-d' \
+        '    RewriteCond %{REQUEST_URI} !\.php(/|$)' \
+        '    RewriteRule ^ r.php [QSA,L]' \
+        '</Directory>' \
+    > /etc/apache2/conf-available/moodle-router.conf \
+    && a2enconf moodle-router
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

@@ -64,4 +64,12 @@ if [ "${MOODLE_SSLPROXY:-false}" = "true" ] && ! grep -q 'sslproxy' "${MOODLE_CO
     echo "Enabled sslproxy for HTTPS reverse-proxy operation."
 fi
 
+# The image configures Apache to route clean URLs through Moodle's r.php, so
+# tell Moodle the router is configured (Moodle 5.1+ admin health check).
+if [ "${MOODLE_ROUTER:-true}" = "true" ] && ! grep -q 'routerconfigured' "${MOODLE_CONFIG}"; then
+    sed -i "/require_once/i \$CFG->routerconfigured = true;" "${MOODLE_CONFIG}"
+    cp "${MOODLE_CONFIG}" "${PERSISTENT_CONFIG}"
+    echo "Marked Moodle router as configured."
+fi
+
 exec "$@"
