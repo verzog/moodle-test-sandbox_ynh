@@ -33,12 +33,17 @@ CRON_INTERVAL=1
 **a. Domain + certificate** — YunoHost admin → **Domains → Add**
 `learn.scca.nohost.me`, then install its **Let's Encrypt** certificate.
 
-**b. Reverse-proxy the domain to the container:**
+**b. Reverse-proxy the domain to the container AND bypass YunoHost SSO**
+(Moodle has its own login). The non-empty `access_by_lua_block` is what stops
+the SSO redirect on YunoHost 12 — an empty `{}` is ignored:
 
 ```bash
 sudo mkdir -p /etc/nginx/conf.d/learn.scca.nohost.me.d
 sudo tee /etc/nginx/conf.d/learn.scca.nohost.me.d/moodle-docker.conf >/dev/null <<'EOF'
 location / {
+    access_by_lua_block {
+        ngx.log(ngx.INFO, "moodle sandbox: bypassing YunoHost SSO")
+    }
     proxy_pass http://127.0.0.1:8080;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -48,16 +53,6 @@ location / {
 }
 EOF
 sudo nginx -t && sudo systemctl reload nginx
-```
-
-**c. Let SSO skip the domain** (Moodle has its own login):
-
-```bash
-F=/etc/ssowat/conf.json.persistent
-[ -s "$F" ] || echo '{}' | sudo tee "$F" >/dev/null
-sudo jq '.skipped_urls=((.skipped_urls//[])+["learn.scca.nohost.me/"]|unique)' \
-    "$F" | sudo tee "$F.tmp" >/dev/null && sudo mv "$F.tmp" "$F"
-sudo yunohost app ssowatconf
 ```
 
 ## 3. Build and start
@@ -70,7 +65,8 @@ docker compose logs -f moodle    # wait for "Moodle installed.", then Ctrl+C
 ## 4. Verify and log in
 
 ```bash
-curl -I https://learn.scca.nohost.me     # expect HTTP/2 200, no x-sso-wat header
+curl -I https://learn.scca.nohost.me     # expect 200 or a 303 to /login/index.php,
+                                          # no x-sso-wat header, no :8080 in any redirect
 ```
 
 Open <https://learn.scca.nohost.me> and log in as **admin** with your
