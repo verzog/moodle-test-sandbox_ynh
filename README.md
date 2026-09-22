@@ -9,6 +9,8 @@ natively — without touching your host's packages, database, or other apps.
 > use YunoHost's SSO/LDAP and is not meant for production data. It exists so you
 > can explore new Moodle versions safely before they're officially supported.
 
+**In a hurry?** See [`QUICKSTART.md`](QUICKSTART.md) for the abbreviated steps.
+
 ## Why Docker instead of the YunoHost package?
 
 Moodle 5.3 requires PostgreSQL 17, but Debian 12 (YunoHost 12) ships only
