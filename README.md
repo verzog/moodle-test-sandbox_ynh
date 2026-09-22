@@ -99,14 +99,21 @@ the container:
    On a fresh site: `docker compose up -d --build`. (If the site was already
    installed with a different wwwroot, use `docker compose down -v` first to
    reinstall cleanly - this erases the test data.)
-4. Add an nginx reverse-proxy rule for the domain. YunoHost reads extra rules
-   from `/etc/nginx/conf.d/YOUR_SUBDOMAIN.d/`, and the HTTPS server block has no
-   `location /` of its own, so this slots in cleanly (replace the domain and
-   port to match your `.env`):
+4. Add an nginx rule for the domain that **reverse-proxies to the container and
+   bypasses YunoHost's SSO** in one go. YunoHost reads extra rules from
+   `/etc/nginx/conf.d/YOUR_SUBDOMAIN.d/`, and the HTTPS server block has no
+   `location /` of its own, so this slots in cleanly (replace the domain/port to
+   match your `.env`):
    ```bash
    sudo mkdir -p /etc/nginx/conf.d/YOUR_SUBDOMAIN.d
    sudo tee /etc/nginx/conf.d/YOUR_SUBDOMAIN.d/moodle-docker.conf > /dev/null <<'EOF'
    location / {
+       # Bypass YunoHost SSO for this domain (Moodle has its own login).
+       # A NON-EMPTY access_by_lua_block is required - an empty {} is ignored
+       # and the inherited SSOwat handler still runs.
+       access_by_lua_block {
+           ngx.log(ngx.INFO, "moodle sandbox: bypassing YunoHost SSO")
+       }
        proxy_pass http://127.0.0.1:8080;
        proxy_set_header Host $host;
        proxy_set_header X-Real-IP $remote_addr;
@@ -122,20 +129,19 @@ the container:
    ```
    Always let `nginx -t` pass before the reload - a bad rule affects every site
    on the server.
-5. Tell YunoHost's SSO (SSOwat) to skip this domain, or it intercepts the root
-   and redirects to the YunoHost portal instead of Moodle. A per-location nginx
-   Lua override is not reliable here; use SSOwat's persistent skip list:
-   ```bash
-   FILE=/etc/ssowat/conf.json.persistent
-   [ -s "$FILE" ] || echo '{}' | sudo tee "$FILE" >/dev/null
-   sudo jq '.skipped_urls = ((.skipped_urls // []) + ["YOUR_SUBDOMAIN/"] | unique)' \
-       "$FILE" | sudo tee "$FILE.tmp" >/dev/null && sudo mv "$FILE.tmp" "$FILE"
-   sudo yunohost app ssowatconf
-   ```
-   `skipped_urls` makes SSOwat ignore the domain entirely (Moodle has its own
-   login); `conf.json.persistent` survives YunoHost regenerating its config.
-6. Verify: `curl -I https://YOUR_SUBDOMAIN` should return `HTTP/2 200` with no
-   `x-sso-wat` header. Then open the site in a browser (hard refresh).
+
+   > **Why the Lua block?** On **YunoHost 12** the SSO was rewritten and ignores
+   > the old `/etc/ssowat/conf.json.persistent` `skipped_urls` trick, so the
+   > nginx `access_by_lua_block` override above is the reliable way to stop the
+   > SSO redirect. (On older YunoHost 11 the `skipped_urls` approach also works;
+   > the nginx override works on both.)
+5. Verify: `curl -I https://YOUR_SUBDOMAIN` should return `HTTP/2 200` or a `303`
+   to `…/login/index.php` (Moodle's own login), with **no `x-sso-wat` header and
+   no `:8080` in any redirect**. Then open the site in a browser (hard refresh).
+   - Still see `x-sso-wat`? The SSO bypass isn't applied - recheck step 4.
+   - Redirect to `…:8080`? The site was installed with the wrong `wwwroot`
+     (e.g. built before `.env` was set). Fix `MOODLE_WWWROOT`, then
+     `docker compose down -v && docker compose up -d --build` to reinstall.
 
 ## PHP settings and cron (config-panel equivalents)
 
